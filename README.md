@@ -7,7 +7,7 @@ Intent is to build an easy to use command line tool capable of converting all au
 v0 milestones(in progrees): 
 - handle wave files (complete)
 - initial set of Octatrack, Rample, Polyend Tracker file targets (complete)
-- modularize code
+- modularize code (complete)
 - add commandline options (in progress)
   - source_directory: where the files should be scanned
   - target_directory: where the new files should go)
