@@ -6,6 +6,8 @@ import wave
 STANDARD_BIT_DEPTHS: Set[int] = {8, 16, 24, 32}
 STANDARD_BIT_RATE_PER_SECOND_RANGE: Set[int] = {16000, 320000}
 STANDARD_SAMPLE_RATES: Set[int] = {8000, 16000, 32000, 44100, 48000, 96000}
+WAVEFILE_EXTENSIONS: Set[str] = {".WAVE", ".wave", ".WAV", ".wav"}
+MP3_EXTENSIONS: Set[str] = {".mp3", ".MP3"}
 
 
 class AudioFileType:
@@ -44,6 +46,34 @@ class AudioFileType:
             else STANDARD_SAMPLE_RATES
         )
         self._default_sample_rate = max(self.sample_rates)
+
+    def __str__(self):
+        attributes = [
+            f"  {k} = '{v}'\n"
+            for k, v
+            in self.__dict__.items() if k[0] != '_'
+        ]
+        return (
+            f"{self.__class__.__name__}\n{''.join(attributes)}"
+        )
+
+    def __repr__(self):
+        attributes = [
+            f"{k}='{v}'"
+            for k, v
+            in self.__dict__.items()
+            if k[0] != '_'
+        ]
+        private_attributes = [
+            f"{k}='{v}'"
+            for k, v
+            in self.__dict__.items()
+            if k[0] == '_'
+        ]
+        return (
+            f"<{self.__class__.__name__} "
+            f"{' '.join(attributes)} {' '.join(private_attributes)} >"
+        )
 
     def set_default_extension(self, extension: str) -> None:
         """Sets the private default extension value"""
@@ -90,7 +120,7 @@ class WaveFileType(AudioFileType):
                 if isinstance(extension, str)
                 else extension
                 if isinstance(extension, set)
-                else {".WAVE", ".wave", ".WAV", ".wav"}
+                else WAVEFILE_EXTENSIONS
             ),
             sample_rate=(
                 {sample_rate} if isinstance(sample_rate, int) else sample_rate
@@ -127,6 +157,11 @@ class WaveFileType(AudioFileType):
         """Provides private default channel count value"""
         return self._default_channel_count
 
+    @staticmethod
+    def get_base_extensions() -> Set[str]:
+        """ Provides extensions being used by class """
+        return WAVEFILE_EXTENSIONS
+
 
 class MP3FileType(AudioFileType):
     """Standard MP3 File Type Class"""
@@ -140,7 +175,7 @@ class MP3FileType(AudioFileType):
         super().__init__(
             name=name if name else "MP3 Audio file",
             short_name="mp3",
-            extension=extension if extension else {".mp3", ".MP3"},
+            extension=extension if extension else MP3_EXTENSIONS,
         )
         self.bit_rates = (
             {bit_rate}
@@ -198,6 +233,38 @@ class AudioFile:
         if not isinstance(other, AudioFile):
             return NotImplemented
         return self.sample_rate != other.sample_rate
+
+    def __str__(self):
+        attributes = [
+            f"  {k} = '{v}'\n"
+            for k, v
+            in self.__dict__.items() if k[0] != '_'
+        ]
+        return (
+            f"{self.__class__.__name__}\n{''.join(attributes)}"
+        )
+
+    def __repr__(self):
+        attributes = [
+            f"{k}='{v}'"
+            for k, v
+            in self.__dict__.items()
+            if k[0] != '_'
+        ]
+        private_attributes = [
+            f"{k}='{v}'"
+            for k, v
+            in self.__dict__.items()
+            if k[0] == '_'
+        ]
+        return (
+            f"<{self.__class__.__name__} "
+            f"{' '.join(attributes)} {' '.join(private_attributes)} >"
+        )
+
+    def get_file_extensions(self):
+        """ Method to expose file_type extensions attribute """
+        return self.file_type.get_extensions()
 
     def read_audio_file_metadata(self):
         """Method to observe the audio file metadata"""
@@ -354,3 +421,8 @@ class WaveFile(AudioFile):
                     )
                     data = wav_file.readframes(wav_file.getnframes())
                     new_audio_file.writeframes(data)
+
+    @staticmethod
+    def get_base_extensions() -> Set[str]:
+        """ Provides extensions being used by class """
+        return WAVEFILE_EXTENSIONS

@@ -1,10 +1,8 @@
-#!/usr/bin/pytyhon3
-
 from os import path as o_path
 from os import walk as o_walk
-from typing import Optional, Tuple
+from typing import Tuple
 
-from classes.audio_types import AudioFileType, AudioFile
+from classes.base_types import AudioFile
 from classes.octatrack import OctatrackSample
 from classes.rample import RampleSample
 from classes.tracker import PolyendTrackerSample
@@ -42,7 +40,7 @@ def append_filename_before_extension(
 
 def find_all_target_files(
     directory: str,
-    sample_type: AudioFileType,
+    file_extensions: set,
 ) -> list:
     """
     Helper function, to find the absolute path for all files in a given
@@ -55,7 +53,7 @@ def find_all_target_files(
         for root, _, files in o_walk(directory):
             for file in files:
                 full_path = o_path.join(root, file)
-                if o_path.splitext(full_path)[1] in sample_type.extensions:
+                if o_path.splitext(full_path)[1] in file_extensions:
                     target_files.append(full_path)
     return target_files
 
@@ -77,7 +75,7 @@ def get_sample_processor(
 def compare_file_to_target_sample(
     file: str,
     proc: AudioFile,
-) -> Optional[Tuple(AudioFile, AudioFile)]:
+) -> Tuple[AudioFile, AudioFile]:
     """
     Helper function, to handle conversion decision logic
     """
@@ -90,4 +88,4 @@ def compare_file_to_target_sample(
         ):
             target_file.file_path = target_path
             return existing_file, target_file
-    return
+    return existing_file, existing_file

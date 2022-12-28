@@ -1,7 +1,10 @@
-#!/usr/bin/python3
+from os import path as _o_path
+from sys import path as _s_path
+file_dir = _o_path.dirname(__file__)
+_s_path.append(file_dir)
 
-
-from audio_types import AudioFileType, WaveFileType, WaveFile
+# pylint: disable=wrong-import-position
+from base_types import AudioFileType, WaveFileType, WaveFile  # noqa: E402
 
 
 class RampleSampleType(WaveFileType):

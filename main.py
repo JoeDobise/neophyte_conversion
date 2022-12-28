@@ -1,30 +1,112 @@
 #!/usr/bin/python3
 
-from os import path as o_path
-from classes.audio_types import AudioFile
+import os
+import click
 
 from helpers import (
     find_all_target_files,
     get_sample_processor,
-    compare_file_to_target_sample
+    compare_file_to_target_sample,
 )
 
-if __name__ == "__main__":
-    directory = o_path.realpath(o_path.curdir)
-    sample: str = "octa"
 
-    SampleProcessor: AudioFile = get_sample_processor(sample)
-    sample_type = SampleProcessor.file_type()
-   
-    NERF = True  # removing this line will resample all wave files
-    # this is still a work in progress please treat its usage with caution
+@click.command()
+@click.option(
+    "--sample-type",
+    "-s",
+    type=click.Choice(["octa", "tracker", "rample"]),
+    help="Target Sample type to use",
+)
+@click.option(
+    "--output-dir",
+    "-o",
+    type=click.Path(file_okay=False, resolve_path=True),
+    default=None,
+    help="Destination target for output"
+)
+@click.option(
+    "--input-dir",
+    "-i",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True),
+    default=os.getcwd(),
+    help="Input target"
+)
+@click.option(
+    "--append-filename",
+    "-a",
+    default=None,
+    help="Modify string pattern appended to filenames, default is shortname",
+)
+@click.option(
+    "--replace-files",
+    "-r",
+    is_flag=True,
+    default=False,
+    help="Ignore output_dir and extension, replace all found files",
+)
+@click.option(
+    "--resample-all",
+    "-r",
+    is_flag=True,
+    default=False,
+    help="Resample all files found, regardless if a difference is observed",
+)
+def convert_files(  # pylint: disable=too-many-arguments,too-many-locals
+    sample_type,
+    input_dir,
+    output_dir,
+    append_filename,
+    replace_files,
+    resample_all,
+):
+    """
+    Find all the files in a given location and convert to new sample types
+    """
+    sample_proc = get_sample_processor(sample_type)
+    file_extensions = sample_proc.get_base_extensions()
 
-    target_files = [] if NERF else find_all_target_files(
-        directory, 
-        sample_type
+    click.echo(
+        f"Collecting all {file_extensions=} "
+        f"for {sample_proc.__name__} conversion under {input_dir}"
     )
+    target_files = find_all_target_files(input_dir, file_extensions)
 
-    for file in target_files:
-        if (result := compare_file_to_target_sample(file, SampleProcessor)):
-            existing, target = result
-            existing.resample_audio_file(target)
+    NERF = True
+    target_files = target_files[:5] if NERF else target_files
+    # initialize counts
+    total_files = len(target_files)
+    converts = 0
+    heretics = 0
+    exceptions = []
+    click.echo(
+        f"Ready to convert {total_files} "
+        f"{'file' if total_files == 1 else 'files'} "
+        f"to {sample_proc.__name__} conversion in "
+        f"{output_dir if output_dir else input_dir}"
+    )
+    click.pause()
+    with click.progressbar(
+        target_files, label="Attempting file conversion"
+    ) as progressbar_files:
+        for _f in progressbar_files:
+            existing, target = compare_file_to_target_sample(_f, sample_proc)
+            if existing != target or resample_all:
+                try:
+                    existing.resample_audio_file(target)
+                    converts += 1
+                except Exception as ex:  # pylint: disable=broad-except
+                    heretics += 1
+                    exceptions += [ex]
+            if len(exceptions) > 4:
+                click.echo(
+                    f"Large number of exceptions occuring, printing exceptions"
+                    f"{exceptions=}"
+                )
+                break
+    click.echo(f"Completed with {total_files=} {converts=} {heretics=}")
+    if exceptions:
+        click.echo(f"Exceptions occurred {len(exceptions)}")
+
+
+if __name__ == "__main__":
+    convert_files()  # pylint: disable=no-value-for-parameter

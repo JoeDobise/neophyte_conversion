@@ -1,7 +1,10 @@
-#!/usr/bin/python3
+from os import path as _o_path
+from sys import path as _s_path
+file_dir = _o_path.dirname(__file__)
+_s_path.append(file_dir)
 
-
-from audio_types import AudioFileType, WaveFileType, WaveFile
+# pylint: disable=wrong-import-position
+from base_types import AudioFileType, WaveFileType, WaveFile  # noqa: E402
 
 
 class OctatrackSampleType(WaveFileType):
@@ -30,7 +33,7 @@ class OctatrackSample(WaveFile):
 
     def __init__(
         self,
-        file_path,
+        file_path: str,
         file_type: AudioFileType = OctatrackSampleType,
         bit_depth: int = 24,
     ) -> None:
@@ -39,3 +42,4 @@ class OctatrackSample(WaveFile):
             file_type=file_type,
             bit_depth=bit_depth,
         )
+        self.file_extensions = file_type().get_extensions()
