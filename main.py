@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     SampleProcessor: AudioFile = get_sample_processor(sample)
     sample_type = SampleProcessor.file_type()
-    
+   
     NERF = True  # removing this line will resample all wave files
     # this is still a work in progress please treat its usage with caution
 
