@@ -413,7 +413,9 @@ class WaveFile(AudioFile):
             else self._metadata.number_of_channels,
             sample_rate=new_metadata.sample_rate,
             bit_depth=new_metadata.bit_depth,
-            subtype=new_metadata.subtype,
+            subtype=self.get_pcm_wave_type_from_bit_depth(
+                new_metadata.bit_depth
+            ),
         )
         resampled_data, resampeld_sample_rate = librosa.load(
             path=self.file_path,
@@ -427,26 +429,9 @@ class WaveFile(AudioFile):
         sf.write(
             new.file_path,
             data=resampled_data,
-            samplerate=new_audiofile_metadata.sample_rate
+            samplerate=new_audiofile_metadata.sample_rate,
+            subtype=new_audiofile_metadata.subtype,
         )
-        # with sf.SoundFile(self.file_path) as wave_file:
-        #     data = wave_file.read()
-        #     resampled = sf.resample(data, )
-        # with wave.open(self.file_path, "rb") as wav_file:
-        #     with wave.open(new.file_path, "wb") as new_audio_file:
-        #         if isinstance(new_audio_file, wave.Wave_write):
-        #             new_audio_file.setparams(
-        #                 (
-        #                     new_params.number_of_channels,
-        #                     new_params.bit_width,
-        #                     new_params.sample_rate,
-        #                     0,
-        #                     new_params.comp,
-        #                     new_params.compname,
-        #                 )
-        #             )
-        #             data = wav_file.readframes(wav_file.getnframes())
-        #             new_audio_file.writeframes(data)
 
     @staticmethod
     def get_base_extensions() -> Set[str]:
