@@ -1,13 +1,23 @@
 from typing import Set, Union, Optional
 from dataclasses import dataclass
 from os import path as o_path
-import wave
+import soundfile as sf
+import librosa
 
 STANDARD_BIT_DEPTHS: Set[int] = {8, 16, 24, 32}
 STANDARD_BIT_RATE_PER_SECOND_RANGE: Set[int] = {16000, 320000}
 STANDARD_SAMPLE_RATES: Set[int] = {8000, 16000, 32000, 44100, 48000, 96000}
 WAVEFILE_EXTENSIONS: Set[str] = {".WAVE", ".wave", ".WAV", ".wav"}
 MP3_EXTENSIONS: Set[str] = {".mp3", ".MP3"}
+
+
+@dataclass
+class AudioData:
+    """Dataclass for Audio File Metadata"""
+    number_of_channels: int
+    sample_rate: int
+    subtype: Optional[str]
+    bit_depth: Optional[int]
 
 
 class AudioFileType:
@@ -19,6 +29,7 @@ class AudioFileType:
         extension: Union[str, Set[str]],
         short_name: str = None,
         sample_rate: Union[int, Set[int]] = None,
+        channel_count: int = 2
     ):
         self.name = name
         # Set a short name to be used if file is
@@ -27,6 +38,8 @@ class AudioFileType:
             if short_name
             else name.split()[0][:4].lower()
         )
+        self.channel_count = channel_count
+        self._default_channel_count = 2
         if extension:
             self.extensions = (
                 {extension}
@@ -99,6 +112,14 @@ class AudioFileType:
         """Provides private default sample rate value"""
         return self._default_sample_rate
 
+    def set_default_channel_count(self, channel_count: int) -> None:
+        """Sets the private default bit_depth value"""
+        self._default_channel_count = channel_count
+
+    def get_default_channel_count(self) -> int:
+        """Provides private default channel count value"""
+        return self._default_channel_count
+
 
 class WaveFileType(AudioFileType):
     """Standard class for Wave File Type"""
@@ -133,8 +154,6 @@ class WaveFileType(AudioFileType):
             if isinstance(bit_depth, set)
             else STANDARD_BIT_DEPTHS
         )
-        self.channel_count = channel_count if channel_count else 2
-        self._default_channel_count = 2
         self._default_bit_depth = 24
         self.set_default_sample_rate(48000)
         self.set_default_extension(".wav")
@@ -148,14 +167,6 @@ class WaveFileType(AudioFileType):
     def get_default_bit_depth(self) -> int:
         """Provides private default bit depth value"""
         return self._default_bit_depth
-
-    def set_default_channel_count(self, channel_count: int) -> None:
-        """Sets the private default bit_depth value"""
-        self._default_channel_count = channel_count
-
-    def get_default_channel_count(self) -> int:
-        """Provides private default channel count value"""
-        return self._default_channel_count
 
     @staticmethod
     def get_base_extensions() -> Set[str]:
@@ -205,6 +216,7 @@ class AudioFile:
         file_path: str,
         file_type: AudioFileType,
         sample_rate=None,
+        channel_count=2,
     ) -> None:
         self.file_path = file_path
         self.file_type = file_type()
@@ -213,6 +225,7 @@ class AudioFile:
             if sample_rate
             else file_type().get_default_sample_rate()
         )
+        self.channel_count = channel_count
         self._filename, self._directory = o_path.split(file_path)
         self._extension = o_path.splitext(file_path)[1]
         if self._extension not in file_type().extensions:
@@ -223,6 +236,7 @@ class AudioFile:
         self._file_exists = o_path.exists(file_path)
         self._directory_exists = o_path.isdir(o_path.split(file_path)[0])
         self._raw_data: Optional[bytes] = None
+        self._metadata: AudioData = None
 
     def __eq__(self, other):
         if not isinstance(other, AudioFile):
@@ -307,6 +321,13 @@ class AudioFile:
             return True
         return False
 
+    def insert_instance_metadata(self, metadata: AudioData) -> None:
+        """
+        Overrides the private metadata with adhoc metadata values without
+        an intended source of truth, used for preparing resample targets
+        """
+        self._metadata = metadata
+
 
 class WaveFile(AudioFile):
     """Wave File class"""
@@ -323,18 +344,14 @@ class WaveFile(AudioFile):
             file_path=file_path,
             file_type=file_type,
             sample_rate=sample_rate,
+            channel_count=channel_count,
         )
         self.bit_depth = (
             bit_depth
             if bit_depth
             else file_type().get_default_bit_depth()
         )
-        self.channel_count = (
-            channel_count
-            if channel_count
-            else file_type().get_default_channel_count()
-        )
-        self._metadata: self.WaveData = None
+        self._metadata: AudioData = None
 
     def __eq__(self, other):
         self.read_audio_file_metadata()
@@ -356,34 +373,25 @@ class WaveFile(AudioFile):
             or self.bit_depth != other.bit_depth
         )
 
-    @dataclass
-    class WaveData:
-        """Dataclass for Wave File Metadata"""
-
-        number_of_channels: int
-        bit_depth: int
-        bit_width: int
-        sample_rate: int
-        comp: str
-        compname: str
-
     def read_wave_file_metadata(self) -> None:
         """Overwrites instance values with current file metadata"""
-        with wave.open(self.file_path, "rb") as wav_file:
-            channels, width, rate, _, comp, compname = wav_file.getparams()
-        self._metadata = self.WaveData(
-            number_of_channels=channels,
-            bit_depth=width * 8,
-            bit_width=width,
-            sample_rate=rate,
-            comp=comp,
-            compname=compname,
-        )
+        with sf.SoundFile(self.file_path) as wave_file:
+            bit_depth = self.get_bit_depth_from_pcm_wave_type(
+                wave_file.subtype
+            )
+            metadata = AudioData(
+                number_of_channels=wave_file.channels,
+                bit_depth=bit_depth,
+                sample_rate=wave_file.samplerate,
+                subtype=wave_file.subtype,
+            )
+        self._metadata = metadata
 
-    def get_exisiting_wave_file_metadata(self) -> WaveData:
+    def get_exisiting_wave_file_metadata(self) -> AudioData:
         """Provides private metadata value"""
         if not self._metadata:
-            self.read_wave_file_metadata()
+            return self.read_wave_file_metadata()
+        return self._metadata
 
     def update_instance_metadata(self) -> None:
         """Updates the instance values with actual values"""
@@ -398,31 +406,76 @@ class WaveFile(AudioFile):
     def resample_audio_file(self, new):
         # type: (WaveFile)->None
         self.update_instance_metadata()
-        new_metadata = self.WaveData(
-            number_of_channels=self._metadata.number_of_channels,
-            bit_depth=new.bit_depth,
-            bit_width=new.bit_depth // 8,
-            sample_rate=new.sample_rate,
-            comp=self._metadata.comp,
-            compname=self._metadata.compname,
+        new_metadata = new.get_exisiting_wave_file_metadata()
+        new_audiofile_metadata = AudioData(
+            number_of_channels=new_metadata.number_of_channels
+            if new_metadata.number_of_channels
+            else self._metadata.number_of_channels,
+            sample_rate=new_metadata.sample_rate,
+            bit_depth=new_metadata.bit_depth,
+            subtype=new_metadata.subtype,
         )
-        with wave.open(self.file_path, "rb") as wav_file:
-            with wave.open(new.file_path, "wb") as new_audio_file:
-                if isinstance(new_audio_file, wave.Wave_write):
-                    new_audio_file.setparams(
-                        (
-                            new_metadata.number_of_channels,
-                            new_metadata.bit_width,
-                            new_metadata.sample_rate,
-                            0,
-                            new_metadata.comp,
-                            new_metadata.compname,
-                        )
-                    )
-                    data = wav_file.readframes(wav_file.getnframes())
-                    new_audio_file.writeframes(data)
+        resampled_data, resampeld_sample_rate = librosa.load(
+            path=self.file_path,
+            sr=new_audiofile_metadata.sample_rate,
+            mono=True
+            if new_audiofile_metadata.number_of_channels == 1
+            else False,
+        )
+        # above is where we break
+        assert resampeld_sample_rate == new_audiofile_metadata.sample_rate
+        sf.write(
+            new.file_path,
+            data=resampled_data,
+            samplerate=new_audiofile_metadata.sample_rate
+        )
+        # with sf.SoundFile(self.file_path) as wave_file:
+        #     data = wave_file.read()
+        #     resampled = sf.resample(data, )
+        # with wave.open(self.file_path, "rb") as wav_file:
+        #     with wave.open(new.file_path, "wb") as new_audio_file:
+        #         if isinstance(new_audio_file, wave.Wave_write):
+        #             new_audio_file.setparams(
+        #                 (
+        #                     new_params.number_of_channels,
+        #                     new_params.bit_width,
+        #                     new_params.sample_rate,
+        #                     0,
+        #                     new_params.comp,
+        #                     new_params.compname,
+        #                 )
+        #             )
+        #             data = wav_file.readframes(wav_file.getnframes())
+        #             new_audio_file.writeframes(data)
 
     @staticmethod
     def get_base_extensions() -> Set[str]:
         """ Provides extensions being used by class """
         return WAVEFILE_EXTENSIONS
+
+    @staticmethod
+    def get_pcm_wave_type_from_bit_depth(bit_depth: int) -> str:
+        """Provides pcm wave type value from bit depth"""
+        match bit_depth:
+            case 8:
+                return "PCM_S8"
+            case 16:
+                return "PCM_16"
+            case 24:
+                return "PCM_24"
+            case 32:
+                return "PCM_32"
+
+    @staticmethod
+    def get_bit_depth_from_pcm_wave_type(pcm_wave: str) -> int:
+        """Provides pcm wave type value from bit depth"""
+        match pcm_wave:
+            case "PCM_S8":
+                return 8
+            case "PCM_16":
+                return 16
+            case "PCM_24":
+                return 24
+            case "PCM_32":
+                return 32
+

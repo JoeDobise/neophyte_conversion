@@ -2,7 +2,7 @@ from os import path as o_path
 from os import walk as o_walk
 from typing import Tuple
 
-from classes.base_types import AudioFile
+from classes.base_types import AudioData, AudioFile
 from classes.octatrack import OctatrackSample
 from classes.rample import RampleSample
 from classes.tracker import PolyendTrackerSample
@@ -89,3 +89,23 @@ def compare_file_to_target_sample(
             target_file.file_path = target_path
             return existing_file, target_file
     return existing_file, existing_file
+
+
+def update_target_values(
+    target_file: AudioFile,
+    sample_rate=None,
+    bit_depth=None,
+    force_mono=False
+) -> AudioData:
+    """
+    Updates defaults for file type
+    """
+
+    return AudioData(
+        number_of_channels=1 if force_mono else 0,
+        bit_depth=bit_depth if bit_depth else target_file.bit_depth,
+        sample_rate=sample_rate
+        if sample_rate
+        else target_file.sample_rate,
+        subtype="n/a"
+    )

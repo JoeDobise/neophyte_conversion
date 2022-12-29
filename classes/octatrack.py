@@ -36,10 +36,11 @@ class OctatrackSample(WaveFile):
         file_path: str,
         file_type: AudioFileType = OctatrackSampleType,
         bit_depth: int = 24,
+        channel_count: int = 2,
     ) -> None:
         super().__init__(
             file_path=file_path,
             file_type=file_type,
             bit_depth=bit_depth,
+            channel_count=channel_count,
         )
-        self.file_extensions = file_type().get_extensions()
