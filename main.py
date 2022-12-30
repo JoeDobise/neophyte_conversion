@@ -7,7 +7,7 @@ import click
 from helpers import (
     find_all_target_files,
     get_sample_processor,
-    compare_file_to_target_sample,
+    generate_input_output_file_metadata,
     update_target_values,
 )
 
@@ -59,7 +59,7 @@ from helpers import (
     help="Input target"
 )
 @click.option(
-    "--append-filename",
+    "--append-string",
     "-a",
     default=None,
     help="Modify string pattern appended to filenames, default is shortname",
@@ -93,7 +93,7 @@ def convert_files(  # pylint: disable=too-many-arguments,too-many-locals
     force_mono,
     resample_all,
     test,
-    append_filename,
+    append_string,
     replace_files,
 ):
     """
@@ -115,18 +115,26 @@ def convert_files(  # pylint: disable=too-many-arguments,too-many-locals
     converts = 0
     heretics = 0
     exceptions = []
+    output_dir = output_dir if output_dir else input_dir
     click.echo(
         f"Ready to convert {total_files} "
         f"{'file' if total_files == 1 else 'files'} "
         f"to {sample_proc.__name__} conversion in "
-        f"{output_dir if output_dir else input_dir}"
+        f"{output_dir}"
     )
     click.pause()
     with click.progressbar(
         target_files, label="Attempting conversion"
     ) as progressbar_files:
         for _f in progressbar_files:
-            existing, target = compare_file_to_target_sample(_f, sample_proc)
+            existing, target = generate_input_output_file_metadata(
+                _f,
+                sample_proc,
+                input_dir,
+                output_dir,
+                append_string,
+                replace_files
+            )
             target_metadata = update_target_values(
                 target,
                 sample_rate,
@@ -141,12 +149,6 @@ def convert_files(  # pylint: disable=too-many-arguments,too-many-locals
                 except Exception as ex:  # pylint: disable=broad-except
                     heretics += 1
                     exceptions += [ex]
-            if len(exceptions) > 4:
-                click.echo(
-                    f"Large number of exceptions occuring, printing exceptions"
-                    f"{exceptions=}"
-                )
-                break
     click.echo(f"Completed with {total_files=} {converts=} {heretics=}")
     if exceptions:
         click.echo(f"Exceptions occurred {len(exceptions)}")

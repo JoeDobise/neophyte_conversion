@@ -1,6 +1,6 @@
 from os import path as o_path
 from os import walk as o_walk
-from typing import Tuple
+from typing import Optional, Tuple
 
 from classes.base_types import AudioData, AudioFile
 from classes.octatrack import OctatrackSample
@@ -72,9 +72,13 @@ def get_sample_processor(
         return RampleSample
 
 
-def compare_file_to_target_sample(
+def generate_input_output_file_metadata(
     file: str,
     proc: AudioFile,
+    input_dir: str,
+    output_dir: str,
+    append_string: Optional[str],
+    replace_files: bool = False,
 ) -> Tuple[AudioFile, AudioFile]:
     """
     Helper function, to handle conversion decision logic
@@ -82,13 +86,21 @@ def compare_file_to_target_sample(
     existing_file = proc(file)
     existing_file.update_instance_metadata()
     target_file = proc(file)
-    if existing_file != target_file:
-        if target_path := append_filename_before_extension(
-            target_file.file_path, target_file.file_type.short_name
-        ):
-            target_file.file_path = target_path
-            return existing_file, target_file
-    return existing_file, existing_file
+
+    if replace_files:
+        return existing_file, target_file
+
+    if input_dir != output_dir:
+        target_file.file_path = o_path.join(
+            output_dir, target_file.file_path.strip(input_dir)
+        )
+
+    target_file.file_path = append_filename_before_extension(
+        target_file.file_path, append_string
+        if append_string
+        else target_file.file_type.short_name,
+    )
+    return existing_file, target_file
 
 
 def update_target_values(
