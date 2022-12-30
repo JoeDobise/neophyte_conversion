@@ -30,7 +30,7 @@ from helpers import (
     "--sample_rate",
     "-srate",
     type=click.Choice([
-        "44.1", "48", "88.2", "96", "176.4", "192",
+        "44", "44.1", "48", "88", "88.2", "96", "176", "176.4", "192",
         "44100", "48000", "88200", "96000", "176400", "192000"
     ]),
     default=None,
@@ -102,7 +102,19 @@ def convert_files(  # pylint: disable=too-many-arguments,too-many-locals
     sample_proc = get_sample_processor(sample_type)
     file_extensions = sample_proc.get_base_extensions()
     bit_depth = int(bit_depth) if bit_depth else None
-    sample_rate = int(sample_rate) if sample_rate else None
+    if sample_rate:
+        if sample_rate in ["44", "44.1", "44100"]:
+            sample_rate = 44100
+        elif sample_rate in ["88", "88.2", "88200"]:
+            sample_rate = 88200
+        elif sample_rate in ["176", "176.4", "176400"]:
+            sample_rate = 176400
+        else:
+            sample_rate = (
+                int(sample_rate) * 1000
+                if int(sample_rate) < 1000
+                else int(sample_rate)
+            )
     click.echo(
         f"Collecting all {file_extensions=} "
         f"for {sample_proc.__name__} conversion under {input_dir}"

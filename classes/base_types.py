@@ -390,7 +390,7 @@ class WaveFile(AudioFile):
     def get_exisiting_wave_file_metadata(self) -> AudioData:
         """Provides private metadata value"""
         if not self._metadata:
-            return self.read_wave_file_metadata()
+            self.read_wave_file_metadata()
         return self._metadata
 
     def update_instance_metadata(self) -> None:
@@ -407,10 +407,23 @@ class WaveFile(AudioFile):
         # type: (WaveFile)->None
         self.update_instance_metadata()
         new_metadata = new.get_exisiting_wave_file_metadata()
+        # We always go with the min number of channels, either we are reducing
+        # the total samples (st->mono) or asking for expansion (mono->st)
+        # there is no percieved value in channel expansion without some type of
+        # st field widening (reverb, 'widener')
         new_audiofile_metadata = AudioData(
-            number_of_channels=new_metadata.number_of_channels
-            if new_metadata.number_of_channels
-            else self._metadata.number_of_channels,
+            number_of_channels=min(
+                new_metadata.number_of_channels,
+                self._metadata.number_of_channels
+            )
+            if (
+                new_metadata.number_of_channels
+                and self._metadata.number_of_channels
+            )
+            else max(
+                new_metadata.number_of_channels,
+                self._metadata.number_of_channels
+            ),
             sample_rate=new_metadata.sample_rate,
             bit_depth=new_metadata.bit_depth,
             subtype=self.get_pcm_wave_type_from_bit_depth(
@@ -424,14 +437,48 @@ class WaveFile(AudioFile):
             if new_audiofile_metadata.number_of_channels == 1
             else False,
         )
-        # above is where we break
         assert resampeld_sample_rate == new_audiofile_metadata.sample_rate
+        if new_audiofile_metadata.number_of_channels > 1:
+            resampled_data = self.convert_librosa_stereo_output_for_soundfile(
+                resampled_data
+            )
         sf.write(
             new.file_path,
             data=resampled_data,
             samplerate=new_audiofile_metadata.sample_rate,
             subtype=new_audiofile_metadata.subtype,
         )
+
+    @staticmethod
+    def convert_librosa_stereo_output_for_soundfile(
+        data
+    ):
+        """
+        librosa and SoundFile libraries follow different conventions for
+        handling stereo audio data
+
+        librosa.load produces data in the following manner
+          array([
+                  [ x, x, x, ..., -x, -x, -x],
+                  [ y, y, y, ..., -y, -y, -y]
+                ],
+                dtype=float32)
+
+        SoundFile expects that same data in the following dimensionality
+          array([
+                  [ x, y ],
+                  [ x, y ],
+                  [ x, y ],
+                  [ ..., ... ],
+                  [ -x, -y ],
+                  [ -x, -y ],
+                  [ -x, -y ]
+                ],
+                dtype=float32)
+
+        ref: bit.ly/3C9PkIc
+        """
+        return [[data[0][i], data[1][i]] for i in range(len(data[0]))]
 
     @staticmethod
     def get_base_extensions() -> Set[str]:
@@ -443,7 +490,7 @@ class WaveFile(AudioFile):
         """Provides pcm wave type value from bit depth"""
         match bit_depth:
             case 8:
-                return "PCM_S8"
+                return "PCM_U8"
             case 16:
                 return "PCM_16"
             case 24:
@@ -455,7 +502,7 @@ class WaveFile(AudioFile):
     def get_bit_depth_from_pcm_wave_type(pcm_wave: str) -> int:
         """Provides pcm wave type value from bit depth"""
         match pcm_wave:
-            case "PCM_S8":
+            case "PCM_U8":
                 return 8
             case "PCM_16":
                 return 16
