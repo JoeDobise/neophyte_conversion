@@ -463,4 +463,3 @@ class WaveFile(AudioFile):
                 return 24
             case "PCM_32":
                 return 32
-
