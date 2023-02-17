@@ -15,20 +15,20 @@ from helpers import (
 @click.command()
 @click.option(
     "--sample-type",
-    "-s",
-    type=click.Choice(["octa", "tracker", "rample"]),
+    "-t",
+    type=click.Choice(["octa", "tracker", "rample", "hyperion"]),
     help="Target Sample type to use",
 )
 @click.option(
     "--bit-depth",
-    "-bit",
+    "-b",
     type=click.Choice(["8", "16", "24", "32"]),
     default=None,
     help="Force bit depth to a specific value",
 )
 @click.option(
     "--sample_rate",
-    "-srate",
+    "-r",
     type=click.Choice([
         "44", "44.1", "48", "88", "88.2", "96", "176", "176.4", "192",
         "44100", "48000", "88200", "96000", "176400", "192000"
@@ -39,7 +39,7 @@ from helpers import (
 )
 @click.option(
     "--force_mono",
-    "-mono",
+    "-m",
     is_flag=True,
     default=False,
     help="Ensure all files are set to mono"
@@ -79,10 +79,17 @@ from helpers import (
     help="Resample all files found, regardless if a difference is observed",
 )
 @click.option(
+    "--failure-rate",
+    "-f",
+    default=0.10,
+    type=float,
+    help="Percentage of files to fail before stopping",
+)
+@click.option(
     "--test",
     is_flag=True,
     default=False,
-    help="Resample all files found, regardless if a difference is observed",
+    help="Test pattern",
 )
 def convert_files(  # pylint: disable=too-many-arguments,too-many-locals
     sample_type,
@@ -92,9 +99,10 @@ def convert_files(  # pylint: disable=too-many-arguments,too-many-locals
     sample_rate,
     force_mono,
     resample_all,
-    test,
     append_string,
     replace_files,
+    failure_rate,
+    test,
 ):
     """
     Find all the files in a given location and convert to new sample types
@@ -124,8 +132,8 @@ def convert_files(  # pylint: disable=too-many-arguments,too-many-locals
         target_files = random.sample(target_files, 5)
     # initialize counts
     total_files = len(target_files)
-    converts = 0
-    heretics = 0
+    converts = []
+    heretics = []
     exceptions = []
     output_dir = output_dir if output_dir else input_dir
     click.echo(
@@ -139,31 +147,33 @@ def convert_files(  # pylint: disable=too-many-arguments,too-many-locals
         target_files, label="Attempting conversion"
     ) as progressbar_files:
         for _f in progressbar_files:
-            existing, target = generate_input_output_file_metadata(
-                _f,
-                sample_proc,
-                input_dir,
-                output_dir,
-                append_string,
-                replace_files
-            )
-            target_metadata = update_target_values(
-                target,
-                sample_rate,
-                bit_depth,
-                force_mono
-            )
-            target.insert_instance_metadata(target_metadata)
-            if existing != target or resample_all:
-                try:
+            try:
+                existing, target = generate_input_output_file_metadata(
+                    _f,
+                    sample_proc,
+                    input_dir,
+                    output_dir,
+                    append_string,
+                    replace_files
+                )
+                target_metadata = update_target_values(
+                    target,
+                    sample_rate,
+                    bit_depth,
+                    force_mono
+                )
+                target.insert_instance_metadata(target_metadata)
+                if existing != target or resample_all:
                     existing.resample_audio_file(target)
-                    converts += 1
-                except Exception as ex:  # pylint: disable=broad-except
-                    heretics += 1
-                    exceptions += [ex]
-    click.echo(f"Completed with {total_files=} {converts=} {heretics=}")
+                    converts.append(_f)
+            except Exception as ex:  # pylint: disable=broad-except
+                heretics.append(_f)
+                exceptions += [ex]
+                if (len(exceptions) / len(converts)) > failure_rate:
+                    break
+    click.echo(f"Completed {total_files=} {len(converts)=} {len(heretics)=}")
     if exceptions:
-        click.echo(f"Exceptions occurred {len(exceptions)}")
+        click.echo(f"Exceptions occurred {len(exceptions)}, {heretics=}")
         if test:
             click.echo(f"Exceptions: \n {exceptions}")
 

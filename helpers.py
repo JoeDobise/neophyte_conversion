@@ -6,6 +6,7 @@ from classes.base_types import AudioData, AudioFile
 from classes.octatrack import OctatrackSample
 from classes.rample import RampleSample
 from classes.tracker import PolyendTrackerSample
+from classes.hyperion import HyperionImpulse
 
 
 def append_filename_before_extension(
@@ -70,6 +71,8 @@ def get_sample_processor(
         return PolyendTrackerSample
     if sample_type == "rample":
         return RampleSample
+    if sample_type == "hyperion":
+        return HyperionImpulse
 
 
 def generate_input_output_file_metadata(
@@ -96,28 +99,24 @@ def generate_input_output_file_metadata(
         )
 
     target_file.file_path = append_filename_before_extension(
-        target_file.file_path, append_string
-        if append_string
-        else target_file.file_type.short_name,
+        target_file.file_path,
+        append_string if append_string else target_file.file_type.short_name,
     )
     return existing_file, target_file
 
 
 def update_target_values(
-    target_file: AudioFile,
-    sample_rate=None,
-    bit_depth=None,
-    force_mono=False
+    target_file: AudioFile, sample_rate=None, bit_depth=None, force_mono=False
 ) -> AudioData:
     """
     Updates defaults for file type
     """
-
+    number_of_channels = (
+        1 if force_mono else 1 if target_file.channel_count == 1 else 0
+    )
     return AudioData(
-        number_of_channels=1 if force_mono else 0,
+        number_of_channels=number_of_channels,
         bit_depth=bit_depth if bit_depth else target_file.bit_depth,
-        sample_rate=sample_rate
-        if sample_rate
-        else target_file.sample_rate,
-        subtype="n/a"
+        sample_rate=sample_rate if sample_rate else target_file.sample_rate,
+        subtype="n/a",
     )
