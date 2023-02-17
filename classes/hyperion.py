@@ -10,7 +10,7 @@ from base_types import AudioFileType, WaveFileType, WaveFile  # noqa: E402
 
 class HyperionImpulseType(WaveFileType):
     """
-    Class type for Synthesis Technology e520 Hyperion Effects Impulse Responses.
+    Class type for SynthTech e520 Hyperion Effects Impulse Responses.
     Hyperion IR's only currently work at Mono 16 bit 48khz
     """
 

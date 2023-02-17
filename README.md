@@ -10,13 +10,11 @@ v0 milestones(done):
   - input_directory: where the files should be scanned (done)
   - sample_type: which type are we converting to (done)
 
-v1 milestones(in progress)
+v1 milestones(done)
 - initial set of Octatrack, Rample, Polyend Tracker file targets (done)
 - modularize code (done)
-- add commandline options (in progress)
-  - output_directory: where the new files should go) (in progress)
-  - (target_sample_rate, target_bit_depth, target_mono): (in progress)
-- replaced native wave module with SoundFile and librosa modules
+- add commandline options (done)
+- replaced native wave module with SoundFile and librosa modules (done)
 
 v2 milestones(projected):
 - handle additional audio files: aiff & mp3
